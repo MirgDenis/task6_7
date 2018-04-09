@@ -19,7 +19,7 @@ ifdown $INTERNAL_IF.$VLAN && ifup $INTERNAL_IF.$VLAN
 
 #Install and configure Apache2
 
-#apt-get -y install apache2
-#sed -i '/<Directory \/>/a Order Allow,Deny\nAllow from 10.0.1.1' /etc/apache2/apache2.conf
-#service apache2 restart
+apt-get -y install apache2
+sed -i '/<Directory \/>/a Order Allow,Deny\nAllow from 10.0.1.1' /etc/apache2/apache2.conf
+service apache2 restart
 
