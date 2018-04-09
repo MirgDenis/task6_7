@@ -1,20 +1,37 @@
 #!/bin/bash
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
+exec 3>&1 1>>/etc/network/interfaces
 source "$dir/vm1.config"
 #Configure VLAN and Internal interface
 
-echo -e "\n# Internal. Host-only\nauto $INTERNAL_IF\niface $INTERNAL_IF inet static\naddress $(echo $INT_IP | cut -d / -f 1)\nnetmask $(echo $INT_IP | cut -d / -f 2)" >> /etc/network/interfaces
-echo -e "\n# VLAN\nauto $INTERNAL_IF.$VLAN\niface $INTERNAL_IF.$VLAN inet static\naddress $(echo $VLAN_IP | cut -d / -f 1)\nnetmask $(echo $VLAN_IP | cut -d / -f 2)\nvlan-raw-device $INTERNAL_IF" >> /etc/network/interfaces
+echo -e "\n# Internal. Host-only"
+echo "auto $INTERNAL_IF"
+echo "iface $INTERNAL_IF inet static"
+echo "address $(echo $INT_IP | cut -d / -f 1)"
+echo "netmask $(echo $INT_IP | cut -d / -f 2)"
+echo -e "\n# VLAN\nauto $INTERNAL_IF.$VLAN"
+echo "iface $INTERNAL_IF.$VLAN inet static"
+echo "address $(echo $VLAN_IP | cut -d / -f 1)"
+echo "netmask $(echo $VLAN_IP | cut -d / -f 2)"
+echo "vlan-raw-device $INTERNAL_IF"
 
 #Checking DHCP or static and configure External
 
 if [ "$EXT_IP" == DHCP ]
 then
-	echo -e "\n# External\nauto $EXTERNAL_IF\niface $EXTERNAL_IF inet dhcp" >> /etc/network/interfaces
+	echo -e "\n# External"
+	echo "auto $EXTERNAL_IF"
+	echo "iface $EXTERNAL_IF inet dhcp"
 else
-	echo -e "\n# External \nauto $EXTERNAL_IF\niface $EXTERNAL_IF inet static\naddress $(echo $EXT_IP | cut -d / -f 1)\nnetmask $(echo $EXT_IP | cut -d / -f 2)\ngateway $EXT_GW" >> /etc/network/interfaces
+	echo -e "\n# External" 
+	echo "auto $EXTERNAL_IF"
+	echo "iface $EXTERNAL_IF inet static"
+	echo "address $(echo $EXT_IP | cut -d / -f 1)"
+	echo "netmask $(echo $EXT_IP | cut -d / -f 2)"
+	echo "gateway $EXT_GW"
 fi
+exec 1>&3 3>&-
 
 #Configure Manage interface
 
