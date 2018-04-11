@@ -88,4 +88,4 @@ server {
 	}
 }
 EOM
-
+service nginx restart
