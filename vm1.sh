@@ -46,7 +46,8 @@ auto $EXTERNAL_IF
 iface $EXTERNAL_IF inet static
 	address $(echo $EXT_IP | cut -d / -f 1)
 	netmask $(echo $EXT_IP | cut -d / -f 2)
-	gateway $EXT_GW" >>/etc/network/interfaces
+	gateway $EXT_GW
+	dns-nameserver 8.8.8.8" >>/etc/network/interfaces
 fi
 
 #Up
