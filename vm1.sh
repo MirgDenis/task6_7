@@ -2,47 +2,59 @@
 dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )"
 
 source "$dir/vm1.config"
+modprobe 8021q
+#Down
+
+ifdown $INTERNAL_IF
+ifdown $EXTERNAL_IF
+
 #Configure VLAN and Internal interface
 
-exec 3>&1 1>>/etc/network/interfaces
-echo -e "\n# Internal. Host-only"
-echo "auto $INTERNAL_IF"
-echo "iface $INTERNAL_IF inet static"
-echo "address $(echo $INT_IP | cut -d / -f 1)"
-echo "netmask $(echo $INT_IP | cut -d / -f 2)"
-echo -e "\n# VLAN\nauto $INTERNAL_IF.$VLAN"
-echo "iface $INTERNAL_IF.$VLAN inet static"
-echo "address $(echo $VLAN_IP | cut -d / -f 1)"
-echo "netmask $(echo $VLAN_IP | cut -d / -f 2)"
-echo "vlan-raw-device $INTERNAL_IF"
+echo "
+# Available interfaces
+source /etc/network/interfaces.d/*
+
+# Loopback
+auto lo
+iface lo inet loopback
+
+# Internal. Host-only
+auto $INTERNAL_IF
+iface $INTERNAL_IF inet static
+	address $(echo $INT_IP | cut -d / -f 1)
+	netmask $(echo $INT_IP | cut -d / -f 2)
+
+# VLAN
+auto $INTERNAL_IF.$VLAN
+iface $INTERNAL_IF.$VLAN inet static
+	address $(echo $VLAN_IP | cut -d / -f 1)
+	netmask $(echo $VLAN_IP | cut -d / -f 2)
+	vlan-raw-device $INTERNAL_IF" >/etc/network/interfaces
 
 #Checking DHCP or static and configure External
 
 if [ "$EXT_IP" == DHCP ]
 then
-	echo -e "\n# External"
-	echo "auto $EXTERNAL_IF"
-	echo "iface $EXTERNAL_IF inet dhcp"
+	echo "
+# External
+auto $EXTERNAL_IF
+iface $EXTERNAL_IF inet dhcp" >>/etc/network/interfaces
 else
-	echo -e "\n# External" 
-	echo "auto $EXTERNAL_IF"
-	echo "iface $EXTERNAL_IF inet static"
-	echo "address $(echo $EXT_IP | cut -d / -f 1)"
-	echo "netmask $(echo $EXT_IP | cut -d / -f 2)"
-	echo "gateway $EXT_GW"
+	echo "
+# External 
+auto $EXTERNAL_IF
+iface $EXTERNAL_IF inet static
+	address $(echo $EXT_IP | cut -d / -f 1)
+	netmask $(echo $EXT_IP | cut -d / -f 2)
+	gateway $EXT_GW" >>/etc/network/interfaces
 fi
-exec 1>&3 3>&-
 
-#Configure Manage interface
+#Up
 
-
-
-#Restart Up Down
-
-ifdown $INTERNAL_IF && ifup $INTERNAL_IF
-ifdown $INTERNAL_IF.$VLAN && ifup $INTERNAL_IF.$VLAN
-ifdown $EXTERNAL_IF && ifup $EXTERNAL_IF
-#ifdown $MANAGMENT_IF && ifup $MANAGMENT_IF
+ifup $INTERNAL_IF
+ifup $INTERNAL_IF.$VLAN
+ifup $EXTERNAL_IF
+IP=`ifconfig $EXTERNAL_IF | grep "inet addr:" | cut -d: -f2 | awk '{print $1}'`
 
 #Iptables for access to internet from VM2
 
@@ -53,16 +65,23 @@ iptables -t nat -A POSTROUTING -o $EXTERNAL_IF -j MASQUERADE
 #Creating root cert
 
 openssl genrsa -out /etc/ssl/private/root-ca.key 2048
-openssl req -x509 -new -key /etc/ssl/private/root-ca.key -days 365 -out /etc/ssl/certs/root-ca.crt -subj '/C=UA/ST=Kharkiv/L=Kharkiv/O=NURE/OU=Mirantis/CN=rootCA'
+openssl req -x509 -new\
+	-key /etc/ssl/private/root-ca.key\
+	-days 365\
+	-out /etc/ssl/certs/root-ca.crt\
+	-subj '/C=UA/ST=Kharkiv/L=Kharkiv/O=NURE/OU=Mirantis/CN=rootCA'
 
-#Creating web cert singing request and sing
+#Creating web cert signing request and sign
 
 openssl genrsa -out /etc/ssl/private/web.key 2048
-openssl req -new -key /etc/ssl/private/web.key -nodes -out /etc/ssl/certs/web.csr -subj "/C=UA/ST=Kharkiv/L=Karkiv/O=NURE/OU=Mirantis/CN=$(hostname -f)"
+openssl req -new\
+	-key /etc/ssl/private/web.key\
+	-nodes\
+	-out /etc/ssl/certs/web.csr\
+	-subj "/C=UA/ST=Kharkiv/L=Karkiv/O=NURE/OU=Mirantis/CN=$(hostname -f)"
 
 if [ "$EXT_IP" == DHCP ]
 then
-	IP=`ifconfig $EXTERNAL_IF | grep "inet addr:" | cut -d: -f2 | awk '{print $1}'`
 	openssl x509 -req -extfile <(printf "subjectAltName=IP:$IP") -days 365 -in /etc/ssl/certs/web.csr -CA /etc/ssl/certs/root-ca.crt -CAkey /etc/ssl/private/root-ca.key -CAcreateserial -out /etc/ssl/certs/web.crt
 else
 	openssl x509 -req -extfile <(printf "subjectAltName=IP:$EXT_IP") -days 365 -in /etc/ssl/certs/web.csr -CA /etc/ssl/certs/root-ca.crt -CAkey /etc/ssl/private/root-ca.key -CAcreateserial -out /etc/ssl/certs/web.crt
@@ -78,7 +97,7 @@ mv ./web-bundle.crt /etc/ssl/certs
 apt-get -y install nginx
 cat <<EOM >/etc/nginx/sites-available/default
 server {
-	listen $NGINX_PORT ssl;
+	listen $IP:$NGINX_PORT ssl;
 	ssl on;
 	ssl_certificate /etc/ssl/certs/web-bundle.crt;
 	ssl_certificate_key /etc/ssl/private/web.key;
