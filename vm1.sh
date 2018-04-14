@@ -92,13 +92,17 @@ fi
 
 cat /etc/ssl/certs/web.crt /etc/ssl/certs/root-ca.crt > web-bundle.crt
 mv ./web-bundle.crt /etc/ssl/certs
+echo $IP $(hostname) > /etc/hosts
 
 #Install nginx and configure virtual hosts
 
 apt-get -y install nginx
-cat <<EOM >/etc/nginx/sites-available/default
+rm /etc/nginx/sites-enabled/*
+cp /etc/nginx/sites-available/default /etc/nginx/sites-available/$(hostname)
+echo "
 server {
 	listen $IP:$NGINX_PORT ssl;
+	server_name $(hostname)
 	ssl on;
 	ssl_certificate /etc/ssl/certs/web-bundle.crt;
 	ssl_certificate_key /etc/ssl/private/web.key;
@@ -106,6 +110,6 @@ server {
 	location / {
 		proxy_pass http://$APACHE_VLAN_IP;
 	}
-}
-EOM
+}" > /etc/nginx/sites-available/$(hostname)
+ln -s /etc/nginx/sites-available/$(hostname) /etc/nginx/sites-enabled/$(hostname)
 service nginx restart
