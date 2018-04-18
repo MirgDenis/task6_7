@@ -37,7 +37,9 @@ vlan-raw-device $INTERNAL_IF" >/etc/network/interfaces
 ifup $INTERNAL_IF
 ifup $INTERNAL_IF.$VLAN
 IP=`ifconfig $INTERNAL_IF | grep 'inet addr' | cut -d: -f2 | awk '{print $1}'`
-echo $IP $(hostname) > /etc/hosts
+echo "
+127.0.0.1 loopback
+$IP $(hostname)" > /etc/hosts
 
 #Install and configure Apache2
 

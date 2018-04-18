@@ -83,16 +83,18 @@ openssl req -new\
 
 if [ "$EXT_IP" == DHCP ]
 then
-	openssl x509 -req -extfile <(printf "subjectAltName=IP:$IP") -days 365 -in /etc/ssl/certs/web.csr -CA /etc/ssl/certs/root-ca.crt -CAkey /etc/ssl/private/root-ca.key -CAcreateserial -out /etc/ssl/certs/web.crt
+	openssl x509 -req -extfile <(printf "subjectAltName=IP:$IP,DNS:$(hostname -f)") -days 365 -in /etc/ssl/certs/web.csr -CA /etc/ssl/certs/root-ca.crt -CAkey /etc/ssl/private/root-ca.key -CAcreateserial -out /etc/ssl/certs/web.crt
 else
-	openssl x509 -req -extfile <(printf "subjectAltName=IP:$EXT_IP") -days 365 -in /etc/ssl/certs/web.csr -CA /etc/ssl/certs/root-ca.crt -CAkey /etc/ssl/private/root-ca.key -CAcreateserial -out /etc/ssl/certs/web.crt
+	openssl x509 -req -extfile <(printf "subjectAltName=IP:$EXT_IP,DNS:$(hostname -f)") -days 365 -in /etc/ssl/certs/web.csr -CA /etc/ssl/certs/root-ca.crt -CAkey /etc/ssl/private/root-ca.key -CAcreateserial -out /etc/ssl/certs/web.crt
 fi
 
 #Creating cert chain and moving to certs dir
 
 cat /etc/ssl/certs/web.crt /etc/ssl/certs/root-ca.crt > web-bundle.crt
 mv ./web-bundle.crt /etc/ssl/certs
-echo $IP $(hostname) > /etc/hosts
+echo "
+127.0.0.1 loopback
+$IP $(hostname)" > /etc/hosts
 
 #Install nginx and configure virtual hosts
 
